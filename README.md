@@ -1,4 +1,4 @@
-# mlx-ikq
+# mlx-iqk
 
 IQ_K relayout routed-expert kernels for MLX on Apple silicon, covering three
 members of the IQ_K family: `IQ2_KS` (2.1875 bits per weight plus a 16-bit
@@ -82,7 +82,7 @@ per-row addressable like every other member's.
 
 The dense side of a package carries its own member set: `IQ4_KS`, `IQ4_K`,
 `IQ5_K`, and `IQ6_K`, each with its own geometry, relayout, codec, and
-decode kernels (`mlx_ikq.dense`, `mlx_ikq.dense_kernels`). Those members are
+decode kernels (`mlx_iqk.dense`, `mlx_iqk.dense_kernels`). Those members are
 priced and gated but reach no serving default; a consumer selects them
 explicitly. fp4 and q8_0 tensors serve through their own paths outside this
 repository.
@@ -90,14 +90,14 @@ repository.
 ## Surface
 
 ```python
-from mlx_ikq import IkqSwitchLinear
+from mlx_iqk import IqkSwitchLinear
 
-proj = IkqSwitchLinear("iq2_ks", num_experts, out_features, in_features)
-proj.load_streams(streams)          # from mlx_ikq.format.pack
+proj = IqkSwitchLinear("iq2_ks", num_experts, out_features, in_features)
+proj.load_streams(streams)          # from mlx_iqk.format.pack
 y = proj(x, indices, sorted_indices=True)
 ```
 
-`IkqSwitchLinear` matches the `(x, indices)` switch-linear interface: a call
+`IqkSwitchLinear` matches the `(x, indices)` switch-linear interface: a call
 with few token-expert pairs runs the fused decode GEMV; a larger call
 dequantizes the stacked experts in one kernel pass and runs `mx.gather_mm`,
 honouring the caller's sort flag so each expert's weights are read once per
@@ -111,13 +111,13 @@ answer; the generator refuses it instead.
 
 ## Conversion
 
-`mlx_ikq.codec` wraps a copy of ik_llama's own quantizers and
+`mlx_iqk.codec` wraps a copy of ik_llama's own quantizers and
 dequantizers, so the repository converts float rows plus an imatrix to wire
 bytes without a checkout of that engine.
 
 ```python
-from mlx_ikq import format as fmt
-from mlx_ikq import codec
+from mlx_iqk import format as fmt
+from mlx_iqk import codec
 
 wire = codec.quantize("iq2_ks", rows, imatrix)   # ik wire bytes
 streams = fmt.pack("iq2_ks", wire, in_features)  # the served relayout

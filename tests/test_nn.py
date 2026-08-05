@@ -7,13 +7,13 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import format as fmt
-from mlx_ikq.iq1grid import grid_values
-from mlx_ikq.kernels import IQ2_MEMBERS, IkqKernelError
-from mlx_ikq.nn import (
+from mlx_iqk import format as fmt
+from mlx_iqk.iq1grid import grid_values
+from mlx_iqk.kernels import IQ2_MEMBERS, IqkKernelError
+from mlx_iqk.nn import (
     DECODE_MAT_LIMIT,
-    IkqRuntimeError,
-    IkqSwitchLinear,
+    IqkRuntimeError,
+    IqkSwitchLinear,
     grid_table,
     member_table,
     value_table,
@@ -30,7 +30,7 @@ def _module(member: str, n: int, seed: int, out_features: int = OUT_FEATURES):
                                 scales="serving")
     streams = fmt.pack(member, wire, n)
     reference = fmt.decode(member, streams, n).reshape(EXPERTS, out_features, n)
-    module = IkqSwitchLinear(member, EXPERTS, out_features, n)
+    module = IqkSwitchLinear(member, EXPERTS, out_features, n)
     shapes = fmt.component_shapes(member, EXPERTS, out_features, n)
     module.load_streams({name: mx.array(np.ascontiguousarray(value).reshape(shapes[name]))
                          for name, value in streams.items()})
@@ -84,7 +84,7 @@ def test_load_streams_rejects_a_wrong_shape(member):
     streams = {name: getattr(module, name) for name in shapes}
     name = "qs"
     streams[name] = mx.zeros((EXPERTS, OUT_FEATURES, 3), dtype=mx.uint32)
-    with pytest.raises(IkqRuntimeError):
+    with pytest.raises(IqkRuntimeError):
         module.load_streams(streams)
 
 
@@ -94,7 +94,7 @@ def test_load_streams_rejects_a_missing_stream(member):
     shapes = fmt.component_shapes(member, EXPERTS, OUT_FEATURES, 2048)
     streams = {name: getattr(module, name) for name in shapes}
     streams.pop(list(shapes)[1])
-    with pytest.raises(IkqRuntimeError):
+    with pytest.raises(IqkRuntimeError):
         module.load_streams(streams)
 
 
@@ -280,7 +280,7 @@ def test_sorted_gemv_refuses_a_toks_pair_mismatch(member):
     x = mx.zeros((2, 1, 1, 2048), dtype=mx.float16)
     sorted_ids = mx.zeros((8,), dtype=mx.uint32)
     toks = mx.zeros((6,), dtype=mx.uint32)
-    with pytest.raises(IkqRuntimeError):
+    with pytest.raises(IqkRuntimeError):
         module.gemv_sorted(x, sorted_ids, toks)
 
 
@@ -290,7 +290,7 @@ def test_union_gemv_refuses_a_toks_pair_mismatch(member):
     x = mx.zeros((2, 1, 1, 2048), dtype=mx.float16)
     sorted_ids = mx.zeros((8,), dtype=mx.uint32)
     toks = mx.zeros((6,), dtype=mx.uint32)
-    with pytest.raises(IkqRuntimeError):
+    with pytest.raises(IqkRuntimeError):
         module.gemv_union(x, sorted_ids, toks)
 
 
@@ -299,7 +299,7 @@ def test_gemv_refuses_a_pair_count_that_does_not_tile_the_rows(member):
     module, _ = _module(member, 2048, seed=61)
     x = mx.zeros((3, 1, 1, 2048), dtype=mx.float16)
     indices = mx.zeros((1, 4), dtype=mx.uint32)
-    with pytest.raises(IkqRuntimeError):
+    with pytest.raises(IqkRuntimeError):
         module.gemv(x, indices)
 
 
@@ -348,7 +348,7 @@ def test_dequantized_range_matches_the_full_slice(member, n):
 def test_dequantized_range_refuses_a_bad_range(member):
     module, _ = _module(member, 2048, seed=61)
     for start, rows in ((0, 0), (0, 12), (0, -8), (-8, 8), (28, 8), (0, 64)):
-        with pytest.raises(IkqRuntimeError):
+        with pytest.raises(IqkRuntimeError):
             module.dequantized_range(start, rows)
 
 
@@ -383,7 +383,7 @@ def test_iq1_s_r4_has_no_sorted_or_union_formulation():
     x = mx.zeros((2, 1, 1, 2048), dtype=mx.float16)
     ids = mx.zeros((4,), dtype=mx.uint32)
     toks = mx.zeros((4,), dtype=mx.uint32)
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         module.gemv_sorted(x, ids, toks)
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         module.gemv_union(x, ids, toks)

@@ -24,8 +24,8 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import codec
-from mlx_ikq import format as fmt
+from mlx_iqk import codec
+from mlx_iqk import format as fmt
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "ikref_upstream"

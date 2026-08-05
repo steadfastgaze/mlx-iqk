@@ -77,7 +77,7 @@ signed. In ``IQ1_S_R4`` it is
 ``d * float(2 * ls + 1) * (float(grid_value) + shift)``
 
 with ``grid_value`` a ternary value from the 2048-entry IQ1_S grid
-(:mod:`mlx_ikq.iq1grid`), ``ls`` the 3-bit block scale, and ``shift`` a
+(:mod:`mlx_iqk.iq1grid`), ``ls`` the 3-bit block scale, and ``shift`` a
 per-block ``+-0.125``. Every arithmetic step is float32 in both chains.
 That is the CPU dequantizer's own order of operations, which is the
 bit-exactness reference for this repository. ik's Metal helpers hold the
@@ -102,7 +102,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from mlx_ikq.iq1grid import grid_values
+from mlx_iqk.iq1grid import grid_values
 
 QK_K = 256
 """Weights per ik super-block. Both 2-bit members declare this block size."""
@@ -262,26 +262,26 @@ IQ6_K_BLOCK_BYTES = 212
 """``sizeof(block_iq6_k)``: d 2 + extra 2 + scales 16 + qs 128 + qh 64."""
 
 
-class IkqFormatError(ValueError):
+class IqkFormatError(ValueError):
     pass
 
 
 def check_member(member: str) -> str:
     if member not in MEMBERS:
-        raise IkqFormatError(f"ikq routed member {member!r} not in {MEMBERS}")
+        raise IqkFormatError(f"iqk routed member {member!r} not in {MEMBERS}")
     return member
 
 
 def check_dense_member(member: str) -> str:
     if member not in DENSE_MEMBERS:
-        raise IkqFormatError(f"ikq dense member {member!r} not in {DENSE_MEMBERS}")
+        raise IqkFormatError(f"iqk dense member {member!r} not in {DENSE_MEMBERS}")
     return member
 
 
 def check_any_member(member: str) -> str:
     if member not in MEMBERS and member not in DENSE_MEMBERS:
-        raise IkqFormatError(
-            f"ikq member {member!r} not in {MEMBERS} or {DENSE_MEMBERS}")
+        raise IqkFormatError(
+            f"iqk member {member!r} not in {MEMBERS} or {DENSE_MEMBERS}")
     return member
 
 
@@ -295,7 +295,7 @@ def check_row_width(in_features: int, member: str = "iq2_ks") -> int:
     n = int(in_features)
     block = BLOCK_WEIGHTS[check_any_member(member)]
     if n <= 0 or n % block:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"in_features {in_features} is not a positive multiple of {block}; ik "
             "silently substitutes a different type for such a row rather than "
             "failing, so the width is rejected here instead")
@@ -311,7 +311,7 @@ def check_wire_rows(member: str, rows: int) -> int:
     group = WIRE_GROUP_ROWS[check_any_member(member)]
     r = int(rows)
     if r <= 0 or r % group:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"{member} wire rows come in groups of {group}; {rows} rows do "
             "not split into whole groups")
     return r
@@ -481,7 +481,7 @@ def _pack_iq2_ks_rows(wire: np.ndarray, in_features: int) -> dict[str, np.ndarra
     rows = wire.shape[0]
     expect = ik_row_bytes("iq2_ks", n)
     if wire.shape[1] != expect:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"iq2_ks row of {n} weights is {expect} wire bytes, got {wire.shape[1]}")
     nblocks = n // QK_K
     dv = wire[:, :2].copy().view(np.float16).reshape(rows)
@@ -523,7 +523,7 @@ def _pack_iq2_k_rows(wire: np.ndarray, in_features: int) -> dict[str, np.ndarray
     rows = wire.shape[0]
     expect = ik_row_bytes("iq2_k", n)
     if wire.shape[1] != expect:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"iq2_k row of {n} weights is {expect} wire bytes, got {wire.shape[1]}")
     nblocks = n // QK_K
     body = wire.reshape(rows, nblocks, IQ2_K_BLOCK_BYTES)
@@ -566,7 +566,7 @@ def _pack_iq1_s_r4_rows(wire: np.ndarray, in_features: int) -> dict[str, np.ndar
     rows = check_wire_rows("iq1_s_r4", wire.shape[0])
     expect = ik_row_bytes("iq1_s_r4", n)
     if wire.shape[1] != expect:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"iq1_s_r4 row of {n} weights is {expect} wire bytes, got {wire.shape[1]}")
     nblock = n // 32
     groups = rows // 4
@@ -623,7 +623,7 @@ def _pack_chunked(fn, wire: np.ndarray, in_features: int,
                   chunk: int, group: int = 1) -> dict[str, np.ndarray]:
     rows = wire.shape[0]
     if chunk <= 0 or chunk % group:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"pack chunk {chunk} is not a positive multiple of the "
             f"{group}-row wire group")
     if rows <= chunk:
@@ -760,7 +760,7 @@ def unpack(member: str, streams: dict[str, np.ndarray], in_features: int,
     group = WIRE_GROUP_ROWS[member]
     rows = streams["qs"].shape[0]
     if chunk <= 0 or chunk % group:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"unpack chunk {chunk} is not a positive multiple of the "
             f"{group}-row wire group")
     if rows <= chunk:
@@ -902,7 +902,7 @@ def dense_component_shapes(member: str, out_features: int,
     n = check_row_width(in_features)
     o = int(out_features)
     if o <= 0:
-        raise IkqFormatError(f"out_features {out_features} is not positive")
+        raise IqkFormatError(f"out_features {out_features} is not positive")
     if member == "iq4_ks":
         return {"qs": (o, n // 8), "scl": (o, n // 32), "dv": (o,)}
     if member == "iq4_k":
@@ -1024,7 +1024,7 @@ def _pack_iq4_ks_rows(wire: np.ndarray, in_features: int) -> dict[str, np.ndarra
     rows = wire.shape[0]
     expect = ik_row_bytes("iq4_ks", n)
     if wire.shape[1] != expect:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"iq4_ks row of {n} weights is {expect} wire bytes, got {wire.shape[1]}")
     nblocks = n // QK_K
     dv = wire[:, :4].copy().view(np.float32).reshape(rows)
@@ -1052,7 +1052,7 @@ def _pack_block_scale_rows(member: str, wire: np.ndarray,
     rows = wire.shape[0]
     expect = ik_row_bytes(member, n)
     if wire.shape[1] != expect:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"{member} row of {n} weights is {expect} wire bytes, got {wire.shape[1]}")
     nblocks = n // QK_K
     body = wire.reshape(rows, nblocks, _BLOCK_BYTES[member])
@@ -1254,7 +1254,7 @@ __all__ = [
     "QK_K",
     "SUB_WEIGHTS",
     "WIRE_GROUP_ROWS",
-    "IkqFormatError",
+    "IqkFormatError",
     "bits_per_weight",
     "check_any_member",
     "check_dense_member",

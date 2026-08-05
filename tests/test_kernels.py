@@ -25,12 +25,12 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import codec
-from mlx_ikq import format as fmt
-from mlx_ikq.kernels import (
+from mlx_iqk import codec
+from mlx_iqk import format as fmt
+from mlx_iqk.kernels import (
     SUPPORTED_IN_FEATURES,
     TABLE_INPUT_NAMES,
-    IkqKernelError,
+    IqkKernelError,
     dequant_input_names,
     dequant_kernel,
     gemv_input_names,
@@ -39,7 +39,7 @@ from mlx_ikq.kernels import (
     gemv_threads,
     simdgroups,
 )
-from mlx_ikq.nn import IkqSwitchLinear
+from mlx_iqk.nn import IqkSwitchLinear
 
 pytestmark = pytest.mark.gpu
 
@@ -49,10 +49,10 @@ SAMPLE_TOKENS = 8
 TOP_K = 3
 
 
-def _module(member: str, n: int, wire: np.ndarray) -> tuple[IkqSwitchLinear, np.ndarray]:
+def _module(member: str, n: int, wire: np.ndarray) -> tuple[IqkSwitchLinear, np.ndarray]:
     streams = fmt.pack(member, wire, n)
     reference = fmt.decode(member, streams, n).reshape(EXPERTS, OUT_FEATURES, n)
-    module = IkqSwitchLinear(member, EXPERTS, OUT_FEATURES, n)
+    module = IqkSwitchLinear(member, EXPERTS, OUT_FEATURES, n)
     shapes = fmt.component_shapes(member, EXPERTS, OUT_FEATURES, n)
     module.load_streams({name: mx.array(np.ascontiguousarray(value).reshape(shapes[name]))
                          for name, value in streams.items()})
@@ -79,31 +79,31 @@ def _fp16_ulp(got: np.ndarray, want: np.ndarray) -> np.ndarray:
 @pytest.mark.parametrize("member", fmt.MEMBERS)
 @pytest.mark.parametrize("bad", [1024, 1536, 2560, 3072, 4352, 8192])
 def test_gemv_refuses_unsized_input_widths(member, bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         gemv_kernel(member, bad, OUT_FEATURES)
 
 
 @pytest.mark.parametrize("member", fmt.MEMBERS)
 @pytest.mark.parametrize("bad", [1024, 2560, 8192])
 def test_dequant_refuses_unsized_input_widths(member, bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         dequant_kernel(member, bad, OUT_FEATURES)
 
 
 @pytest.mark.parametrize("bad", [24, 40, 100])
 def test_gemv_refuses_out_features_that_do_not_tile_a_threadgroup(bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         gemv_kernel("iq2_ks", 2048, bad)
 
 
 def test_gemv_refuses_a_row_width_that_is_not_a_block_multiple():
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         gemv_kernel("iq2_ks", 4000, OUT_FEATURES)
 
 
 def test_module_construction_refuses_unsized_widths():
-    with pytest.raises(IkqKernelError):
-        IkqSwitchLinear("iq2_k", EXPERTS, OUT_FEATURES, 1024)
+    with pytest.raises(IqkKernelError):
+        IqkSwitchLinear("iq2_k", EXPERTS, OUT_FEATURES, 1024)
 
 
 def test_both_routed_widths_are_real_variants():

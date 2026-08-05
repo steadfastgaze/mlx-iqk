@@ -9,9 +9,9 @@
 # against ik_llama's own library when a checkout is present.
 set -e
 HERE=${0:a:h}
-OUT=${HERE}/libikq_iq2.dylib
-c++ -O3 -std=c++17 -fPIC -shared -o "${OUT}" "${HERE}/ikq_iq2.cpp"
+OUT=${HERE}/libiqk_iq2.dylib
+c++ -O3 -std=c++17 -fPIC -shared -o "${OUT}" "${HERE}/iqk_iq2.cpp"
 echo "built ${OUT}"
-OUT=${HERE}/libikq_dense.dylib
-c++ -O3 -std=c++17 -fPIC -shared -o "${OUT}" "${HERE}/ikq_dense.cpp"
+OUT=${HERE}/libiqk_dense.dylib
+c++ -O3 -std=c++17 -fPIC -shared -o "${OUT}" "${HERE}/iqk_dense.cpp"
 echo "built ${OUT}"

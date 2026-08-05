@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import mlx.core as mx
 
-from mlx_ikq.dense_kernels import (
+from mlx_iqk.dense_kernels import (
     DENSE_DEQUANT_THREADS,
     ROWS_PER_TG,
     check_dense_dequant_geometry,
@@ -38,7 +38,7 @@ from mlx_ikq.dense_kernels import (
     dense_gemv_kernel,
     dense_gemv_threads,
 )
-from mlx_ikq.format import (
+from mlx_iqk.format import (
     IQ4K_VALUES,
     IQ5NL_VALUES,
     IQ6K_TABLE,
@@ -58,7 +58,7 @@ measurement that has not run. Callers that own the routing decision call
 _VALUE_TABLES: dict[str, mx.array] = {}
 
 
-class IkqDenseError(RuntimeError):
+class IqkDenseError(RuntimeError):
     pass
 
 
@@ -88,7 +88,7 @@ def check_dense_streams(member: str, streams: dict[str, mx.array],
     shapes = dense_component_shapes(member, out_features, in_features)
     dtypes = dense_component_dtypes(member)
     if set(streams) != set(shapes):
-        raise IkqDenseError(
+        raise IqkDenseError(
             f"{member} needs streams {sorted(shapes)}, got {sorted(streams)}")
     ordered = []
     for name in dense_dequant_input_names(member):
@@ -96,11 +96,11 @@ def check_dense_streams(member: str, streams: dict[str, mx.array],
             continue
         value = streams[name]
         if tuple(value.shape) != shapes[name]:
-            raise IkqDenseError(
+            raise IqkDenseError(
                 f"stream {name} must be {shapes[name]} for "
                 f"{out_features}x{in_features}, got {tuple(value.shape)}")
         if str(value.dtype) != f"mlx.core.{dtypes[name].name}":
-            raise IkqDenseError(
+            raise IqkDenseError(
                 f"stream {name} must be {dtypes[name].name}, got {value.dtype}")
         ordered.append(value)
     return ordered
@@ -126,7 +126,7 @@ def dense_gemv(member: str, x, streams: dict[str, mx.array],
     xt = _tokens_view(x, n)
     tokens = int(xt.shape[0])
     if tokens <= 0:
-        raise IkqDenseError("no activation rows")
+        raise IqkDenseError("no activation rows")
     blocks = tokens * (out // ROWS_PER_TG)
     threads = dense_gemv_threads(n)
     result = dense_gemv_kernel(member, n, out)(
@@ -174,9 +174,9 @@ def dense_dequantized_range(member: str, streams: dict[str, mx.array],
     ordered = check_dense_streams(member, streams, out, n)
     start, rows = int(start), int(rows)
     if rows <= 0 or rows & (rows - 1):
-        raise IkqDenseError(f"range rows {rows} is not a positive power of two")
+        raise IqkDenseError(f"range rows {rows} is not a positive power of two")
     if start < 0 or start + rows > out:
-        raise IkqDenseError(
+        raise IqkDenseError(
             f"range [{start}, {start + rows}) is outside out_features {out}")
     threads = rows * (n // 32)
     obase = mx.array([start], dtype=mx.uint32)
@@ -210,7 +210,7 @@ def dense_linear(member: str, x, streams: dict[str, mx.array],
 
 __all__ = [
     "DENSE_DECODE_TOKEN_LIMIT",
-    "IkqDenseError",
+    "IqkDenseError",
     "check_dense_streams",
     "dense_dequantized",
     "dense_dequantized_range",

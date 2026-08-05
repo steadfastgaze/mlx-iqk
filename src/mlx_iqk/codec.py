@@ -1,13 +1,13 @@
 """Encode shim and CPU reference decode over the vendored ik codecs.
 
 Three shared libraries built from ``vendor/ik_llama`` carry ik_llama's own
-quantizers and dequantizers: ``libikq_iq2.dylib`` for the routed pair
-(IQ2_K, IQ2_KS), ``libikq_iq1sr4.dylib`` for IQ1_S_R4, and
-``libikq_dense.dylib`` for the dense set (IQ4_KS, IQ4_K, IQ5_K, IQ6_K).
+quantizers and dequantizers: ``libiqk_iq2.dylib`` for the routed pair
+(IQ2_K, IQ2_KS), ``libiqk_iq1sr4.dylib`` for IQ1_S_R4, and
+``libiqk_dense.dylib`` for the dense set (IQ4_KS, IQ4_K, IQ5_K, IQ6_K).
 Two jobs run through them:
 
 - **Encode.** Conversion turns float rows plus an imatrix into ik wire bytes,
-  which :mod:`mlx_ikq.format` then relays out. The arithmetic is upstream's,
+  which :mod:`mlx_iqk.format` then relays out. The arithmetic is upstream's,
   so packages this repository serves carry the same bytes an ik conversion
   would produce for the same input on this instruction set.
 - **Reference.** ``dequantize_row_iq2_k``, ``dequantize_row_iq2_ks``, and
@@ -37,7 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
-from mlx_ikq.format import (
+from mlx_iqk.format import (
     DENSE_MEMBERS,
     IQ1_S_R4_BLOCK_BYTES,
     IQ2_K_BLOCK_BYTES,
@@ -46,7 +46,7 @@ from mlx_ikq.format import (
     IQ4_KS_BLOCK_BYTES,
     IQ5_K_BLOCK_BYTES,
     IQ6_K_BLOCK_BYTES,
-    IkqFormatError,
+    IqkFormatError,
     check_any_member,
     check_row_width,
     check_wire_rows,
@@ -56,7 +56,7 @@ from mlx_ikq.format import (
 _HERE = Path(__file__).resolve().parent
 _VENDOR_CANDIDATES = (
     _HERE.parents[1] / "vendor" / "ik_llama",          # source checkout
-    _HERE.parent / "mlx_ikq_vendor" / "ik_llama",      # installed distribution
+    _HERE.parent / "mlx_iqk_vendor" / "ik_llama",      # installed distribution
 )
 
 _LIB = None
@@ -71,33 +71,33 @@ _DENSE_BLOCK_BYTES = {
 }
 
 
-class IkqCodecError(RuntimeError):
+class IqkCodecError(RuntimeError):
     pass
 
 
 def vendor_dir() -> Path:
     """Directory holding the vendored codec sources and their build scripts."""
     for path in _VENDOR_CANDIDATES:
-        if (path / "ikq_iq2.cpp").is_file():
+        if (path / "iqk_iq2.cpp").is_file():
             return path
-    raise IkqCodecError(
+    raise IqkCodecError(
         "vendored codec sources not found in "
         + ", ".join(str(p) for p in _VENDOR_CANDIDATES))
 
 
 def library_path() -> Path:
     """Shared library the 2-bit codec loads, built beside the vendored sources."""
-    return vendor_dir() / "libikq_iq2.dylib"
+    return vendor_dir() / "libiqk_iq2.dylib"
 
 
 def iq1sr4_library_path() -> Path:
     """Shared library the IQ1_S_R4 codec loads."""
-    return vendor_dir() / "libikq_iq1sr4.dylib"
+    return vendor_dir() / "libiqk_iq1sr4.dylib"
 
 
 def dense_library_path() -> Path:
     """Shared library the dense-member codec loads."""
-    return vendor_dir() / "libikq_dense.dylib"
+    return vendor_dir() / "libiqk_dense.dylib"
 
 
 def _build() -> None:
@@ -118,33 +118,33 @@ def load(build_if_missing: bool = True):
     library = library_path()
     if not library.exists():
         if not build_if_missing:
-            raise IkqCodecError(f"{library} not built; run {vendor_dir()}/build.sh")
+            raise IqkCodecError(f"{library} not built; run {vendor_dir()}/build.sh")
         _build()
     lib = ctypes.CDLL(str(library))
     c_f32 = ctypes.POINTER(ctypes.c_float)
-    for name in ("ikq_row_size_iq2_k", "ikq_row_size_iq2_ks"):
+    for name in ("iqk_row_size_iq2_k", "iqk_row_size_iq2_ks"):
         fn = getattr(lib, name)
         fn.restype = ctypes.c_size_t
         fn.argtypes = [ctypes.c_int64]
-    for name in ("ikq_quantize_iq2_k", "ikq_quantize_iq2_ks"):
+    for name in ("iqk_quantize_iq2_k", "iqk_quantize_iq2_ks"):
         fn = getattr(lib, name)
         fn.restype = ctypes.c_size_t
         fn.argtypes = [c_f32, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64, c_f32]
-    for name in ("ikq_dequantize_iq2_k", "ikq_dequantize_iq2_ks"):
+    for name in ("iqk_dequantize_iq2_k", "iqk_dequantize_iq2_ks"):
         fn = getattr(lib, name)
         fn.restype = ctypes.c_int
         fn.argtypes = [ctypes.c_void_p, c_f32, ctypes.c_int64, ctypes.c_int64]
-    for name in ("ikq_block_size_iq2_k", "ikq_block_size_iq2_ks"):
+    for name in ("iqk_block_size_iq2_k", "iqk_block_size_iq2_ks"):
         fn = getattr(lib, name)
         fn.restype = ctypes.c_size_t
         fn.argtypes = []
-    if lib.ikq_block_size_iq2_k() != IQ2_K_BLOCK_BYTES:
-        raise IkqCodecError(
-            f"vendored block_iq2_k is {lib.ikq_block_size_iq2_k()} bytes, "
+    if lib.iqk_block_size_iq2_k() != IQ2_K_BLOCK_BYTES:
+        raise IqkCodecError(
+            f"vendored block_iq2_k is {lib.iqk_block_size_iq2_k()} bytes, "
             f"the wire spec says {IQ2_K_BLOCK_BYTES}")
-    if lib.ikq_block_size_iq2_ks() != IQ2_KS_BLOCK_BYTES:
-        raise IkqCodecError(
-            f"vendored block_iq2_ks is {lib.ikq_block_size_iq2_ks()} bytes, "
+    if lib.iqk_block_size_iq2_ks() != IQ2_KS_BLOCK_BYTES:
+        raise IqkCodecError(
+            f"vendored block_iq2_ks is {lib.iqk_block_size_iq2_ks()} bytes, "
             f"the wire spec says {IQ2_KS_BLOCK_BYTES}")
     _LIB = lib
     return lib
@@ -158,24 +158,24 @@ def load_iq1sr4(build_if_missing: bool = True):
     library = iq1sr4_library_path()
     if not library.exists():
         if not build_if_missing:
-            raise IkqCodecError(
+            raise IqkCodecError(
                 f"{library} not built; run {vendor_dir()}/build_iq1sr4.sh")
         _build_iq1sr4()
     lib = ctypes.CDLL(str(library))
     c_f32 = ctypes.POINTER(ctypes.c_float)
-    lib.ikq_row_size_iq1_s_r4.restype = ctypes.c_size_t
-    lib.ikq_row_size_iq1_s_r4.argtypes = [ctypes.c_int64]
-    lib.ikq_quantize_iq1_s_r4.restype = ctypes.c_size_t
-    lib.ikq_quantize_iq1_s_r4.argtypes = [
+    lib.iqk_row_size_iq1_s_r4.restype = ctypes.c_size_t
+    lib.iqk_row_size_iq1_s_r4.argtypes = [ctypes.c_int64]
+    lib.iqk_quantize_iq1_s_r4.restype = ctypes.c_size_t
+    lib.iqk_quantize_iq1_s_r4.argtypes = [
         c_f32, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64, c_f32]
-    lib.ikq_dequantize_iq1_s_r4.restype = ctypes.c_int
-    lib.ikq_dequantize_iq1_s_r4.argtypes = [
+    lib.iqk_dequantize_iq1_s_r4.restype = ctypes.c_int
+    lib.iqk_dequantize_iq1_s_r4.argtypes = [
         ctypes.c_void_p, c_f32, ctypes.c_int64, ctypes.c_int64]
-    lib.ikq_block_size_iq1_s_r4.restype = ctypes.c_size_t
-    lib.ikq_block_size_iq1_s_r4.argtypes = []
-    if lib.ikq_block_size_iq1_s_r4() != IQ1_S_R4_BLOCK_BYTES:
-        raise IkqCodecError(
-            f"vendored block_iq1_s_r4 is {lib.ikq_block_size_iq1_s_r4()} bytes, "
+    lib.iqk_block_size_iq1_s_r4.restype = ctypes.c_size_t
+    lib.iqk_block_size_iq1_s_r4.argtypes = []
+    if lib.iqk_block_size_iq1_s_r4() != IQ1_S_R4_BLOCK_BYTES:
+        raise IqkCodecError(
+            f"vendored block_iq1_s_r4 is {lib.iqk_block_size_iq1_s_r4()} bytes, "
             f"the wire spec says {IQ1_S_R4_BLOCK_BYTES}")
     _LIB_IQ1 = lib
     return lib
@@ -189,27 +189,27 @@ def load_dense(build_if_missing: bool = True):
     library = dense_library_path()
     if not library.exists():
         if not build_if_missing:
-            raise IkqCodecError(f"{library} not built; run {vendor_dir()}/build.sh")
+            raise IqkCodecError(f"{library} not built; run {vendor_dir()}/build.sh")
         _build()
     lib = ctypes.CDLL(str(library))
     c_f32 = ctypes.POINTER(ctypes.c_float)
     for member in _DENSE_BLOCK_BYTES:
-        fn = getattr(lib, f"ikq_row_size_{member}")
+        fn = getattr(lib, f"iqk_row_size_{member}")
         fn.restype = ctypes.c_size_t
         fn.argtypes = [ctypes.c_int64]
-        fn = getattr(lib, f"ikq_quantize_{member}")
+        fn = getattr(lib, f"iqk_quantize_{member}")
         fn.restype = ctypes.c_size_t
         fn.argtypes = [c_f32, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64, c_f32]
-        fn = getattr(lib, f"ikq_dequantize_{member}")
+        fn = getattr(lib, f"iqk_dequantize_{member}")
         fn.restype = ctypes.c_int
         fn.argtypes = [ctypes.c_void_p, c_f32, ctypes.c_int64, ctypes.c_int64]
-        fn = getattr(lib, f"ikq_block_size_{member}")
+        fn = getattr(lib, f"iqk_block_size_{member}")
         fn.restype = ctypes.c_size_t
         fn.argtypes = []
     for member, expect in _DENSE_BLOCK_BYTES.items():
-        got = getattr(lib, f"ikq_block_size_{member}")()
+        got = getattr(lib, f"iqk_block_size_{member}")()
         if got != expect:
-            raise IkqCodecError(
+            raise IqkCodecError(
                 f"vendored block_{member} is {got} bytes, the wire spec "
                 f"says {expect}")
     _DENSE_LIB = lib
@@ -223,10 +223,10 @@ def _member_fn(member: str, kind: str):
     picks the library rather than the caller.
     """
     if member in DENSE_MEMBERS:
-        return getattr(load_dense(), f"ikq_{kind}_{member}")
+        return getattr(load_dense(), f"iqk_{kind}_{member}")
     if member == "iq1_s_r4":
-        return getattr(load_iq1sr4(), f"ikq_{kind}_{member}")
-    return getattr(load(), f"ikq_{kind}_{member}")
+        return getattr(load_iq1sr4(), f"iqk_{kind}_{member}")
+    return getattr(load(), f"iqk_{kind}_{member}")
 
 
 def _f32(array: np.ndarray):
@@ -246,7 +246,7 @@ def quantize(member: str, weights: np.ndarray,
     """
     check_any_member(member)
     if weights.ndim != 2:
-        raise IkqFormatError(f"weights must be [rows, in_features], got {weights.shape}")
+        raise IqkFormatError(f"weights must be [rows, in_features], got {weights.shape}")
     rows, n = weights.shape
     check_row_width(n, member)
     check_wire_rows(member, rows)
@@ -257,14 +257,14 @@ def quantize(member: str, weights: np.ndarray,
         im_ptr, _im_buf = ctypes.cast(0, ctypes.POINTER(ctypes.c_float)), None
     else:
         if imatrix.shape != (n,):
-            raise IkqFormatError(
+            raise IqkFormatError(
                 f"imatrix must be one vector of {n} values, got {imatrix.shape}")
         im_ptr, _im_buf = _f32(imatrix)
     fn = _member_fn(member, "quantize")
     written = fn(src.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
                  out.ctypes.data_as(ctypes.c_void_p), rows, n, im_ptr)
     if written != rows * row_bytes:
-        raise IkqCodecError(
+        raise IqkCodecError(
             f"{member} quantize wrote {written} bytes, expected {rows * row_bytes}")
     return out
 
@@ -280,7 +280,7 @@ def dequantize(member: str, wire: np.ndarray, in_features: int) -> np.ndarray:
     n = check_row_width(in_features, member)
     row_bytes = ik_row_bytes(member, n)
     if wire.ndim != 2 or wire.shape[1] != row_bytes:
-        raise IkqFormatError(
+        raise IqkFormatError(
             f"{member} rows of {n} weights are {row_bytes} wire bytes, got {wire.shape}")
     buf = np.ascontiguousarray(wire, dtype=np.uint8)
     rows = check_wire_rows(member, buf.shape[0])
@@ -289,12 +289,12 @@ def dequantize(member: str, wire: np.ndarray, in_features: int) -> np.ndarray:
     rc = fn(buf.ctypes.data_as(ctypes.c_void_p),
             out.ctypes.data_as(ctypes.POINTER(ctypes.c_float)), rows, n)
     if rc != 0:
-        raise IkqCodecError(f"{member} dequantize rejected geometry {n}")
+        raise IqkCodecError(f"{member} dequantize rejected geometry {n}")
     return out
 
 
 __all__ = [
-    "IkqCodecError",
+    "IqkCodecError",
     "dense_library_path",
     "dequantize",
     "iq1sr4_library_path",

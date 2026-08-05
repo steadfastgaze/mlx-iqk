@@ -10,9 +10,9 @@ build/
 
 # Vendored codec build products; rebuild from vendor/ik_llama/build.sh and
 # vendor/ik_llama/build_iq1sr4.sh.
-vendor/ik_llama/libikq_iq2.dylib
-vendor/ik_llama/libikq_iq1sr4.dylib
-vendor/ik_llama/libikq_dense.dylib
+vendor/ik_llama/libiqk_iq2.dylib
+vendor/ik_llama/libiqk_iq1sr4.dylib
+vendor/ik_llama/libiqk_dense.dylib
 vendor/ik_llama/*.o
 
 # Cross-check harness against a local ik_llama checkout, and its scratch.

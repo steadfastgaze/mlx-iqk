@@ -56,9 +56,9 @@ from price import powermode, run_cell, thermal_sample
 
 import floors
 import wirepack
-from mlx_ikq import format as fmt
-from mlx_ikq.dense import dense_value_table
-from mlx_ikq.dense_kernels import (
+from mlx_iqk import format as fmt
+from mlx_iqk.dense import dense_value_table
+from mlx_iqk.dense_kernels import (
     DENSE_DEQUANT_THREADS,
     ROWS_PER_TG,
     dense_dequant_kernel,

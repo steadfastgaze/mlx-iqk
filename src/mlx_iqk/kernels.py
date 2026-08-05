@@ -61,7 +61,7 @@ from __future__ import annotations
 
 import mlx.core as mx
 
-from mlx_ikq.format import SUB_WEIGHTS, check_member, check_row_width
+from mlx_iqk.format import SUB_WEIGHTS, check_member, check_row_width
 
 IQ2_MEMBERS = ("iq2_ks", "iq2_k")
 """The alphabet-decode members; the recorded sorted/union GEMV formulations
@@ -83,7 +83,7 @@ DEQUANT_THREADS = 256
 """Threads per dequantization threadgroup."""
 
 
-class IkqKernelError(RuntimeError):
+class IqkKernelError(RuntimeError):
     pass
 
 
@@ -91,7 +91,7 @@ def _check_iq2_member(member: str) -> str:
     """Members the recorded sorted/union GEMV formulations cover."""
     check_member(member)
     if member not in IQ2_MEMBERS:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"the sorted and union decode GEMVs are recorded formulations "
             f"for {IQ2_MEMBERS}; {member!r} has no such variant")
     return member
@@ -101,12 +101,12 @@ def check_gemv_geometry(in_features: int, out_features: int) -> tuple[int, int]:
     """Reject any geometry the decode GEMV does not cover, before compiling."""
     n = check_row_width(in_features)
     if n not in SUPPORTED_IN_FEATURES:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"the decode gemv is sized per input width and covers "
             f"{SUPPORTED_IN_FEATURES}, got {in_features}")
     out = int(out_features)
     if out <= 0 or out % ROWS_PER_TG:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out_features} is not a positive multiple of {ROWS_PER_TG}")
     return n, out
 
@@ -115,15 +115,15 @@ def check_dequant_geometry(in_features: int, out_features: int) -> tuple[int, in
     """Reject any geometry the stacked dequantization does not cover."""
     n = check_row_width(in_features)
     if n not in SUPPORTED_IN_FEATURES:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"the dequantization is sized per input width and covers "
             f"{SUPPORTED_IN_FEATURES}, got {in_features}")
     out = int(out_features)
     if out <= 0:
-        raise IkqKernelError(f"out_features {out_features} is not positive")
+        raise IqkKernelError(f"out_features {out_features} is not positive")
     groups = n // 32
     if DEQUANT_THREADS % groups:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"in_features {in_features} does not tile {DEQUANT_THREADS} threads")
     return n, out
 
@@ -132,7 +132,7 @@ def simdgroups(in_features: int) -> int:
     """Simdgroups one decode threadgroup uses for this input width."""
     n = check_row_width(in_features)
     if n % WEIGHTS_PER_SIMDGROUP:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"in_features {in_features} is not a multiple of {WEIGHTS_PER_SIMDGROUP}")
     return n // WEIGHTS_PER_SIMDGROUP
 
@@ -144,7 +144,7 @@ def gemv_threads(in_features: int) -> int:
 
 def _log2(value: int) -> int:
     if value <= 0 or value & (value - 1):
-        raise IkqKernelError(f"{value} is not a positive power of two")
+        raise IqkKernelError(f"{value} is not a positive power of two")
     return value.bit_length() - 1
 
 
@@ -690,10 +690,10 @@ def dequant_range_source(member: str, in_features: int, out_features: int,
     n = in_features
     groups_per_row = n // 32
     if range_rows <= 0 or range_rows & (range_rows - 1):
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"range_rows {range_rows} is not a positive power of two")
     if range_rows > out_features:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"range_rows {range_rows} exceeds out_features {out_features}")
     if member == "iq1_s_r4":
         return _dequant_range_source_iq1_s_r4(in_features, out_features,
@@ -795,13 +795,13 @@ def gemv_kernel(member: str, in_features: int, out_features: int,
     check_member(member)
     n, out = check_gemv_geometry(in_features, out_features)
     if out % rows_per_tg:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out} is not a multiple of rows_per_tg {rows_per_tg}")
     key = (member, n, out, rows_per_tg)
     kernel = _GEMV_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_gemv_{member}_{n}x{out}_r{rows_per_tg}",
+            name=f"mlx_iqk_gemv_{member}_{n}x{out}_r{rows_per_tg}",
             input_names=gemv_input_names(member),
             output_names=["out"],
             source=gemv_source(member, n, out, rows_per_tg),
@@ -816,13 +816,13 @@ def gemv_sorted_kernel(member: str, in_features: int, out_features: int,
     check_member(member)
     n, out = check_gemv_geometry(in_features, out_features)
     if out % rows_per_tg:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out} is not a multiple of rows_per_tg {rows_per_tg}")
     key = (member, n, out, rows_per_tg)
     kernel = _GEMV_SORTED_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_gemv_sorted_{member}_{n}x{out}_r{rows_per_tg}",
+            name=f"mlx_iqk_gemv_sorted_{member}_{n}x{out}_r{rows_per_tg}",
             input_names=gemv_sorted_input_names(member),
             output_names=["out"],
             source=gemv_sorted_source(member, n, out, rows_per_tg),
@@ -837,13 +837,13 @@ def gemv_union_kernel(member: str, in_features: int, out_features: int,
     check_member(member)
     n, out = check_gemv_geometry(in_features, out_features)
     if out % rows_per_tg:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out} is not a multiple of rows_per_tg {rows_per_tg}")
     key = (member, n, out, rows_per_tg)
     kernel = _GEMV_UNION_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_gemv_union_{member}_{n}x{out}_r{rows_per_tg}",
+            name=f"mlx_iqk_gemv_union_{member}_{n}x{out}_r{rows_per_tg}",
             input_names=gemv_union_input_names(member),
             output_names=["out"],
             source=gemv_union_source(member, n, out, rows_per_tg),
@@ -860,7 +860,7 @@ def dequant_kernel(member: str, in_features: int, out_features: int):
     kernel = _DEQUANT_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dequant_{member}_{n}x{out}",
+            name=f"mlx_iqk_dequant_{member}_{n}x{out}",
             input_names=dequant_input_names(member),
             output_names=["out"],
             source=dequant_source(member, n, out),
@@ -878,7 +878,7 @@ def dequant_range_kernel(member: str, in_features: int, out_features: int,
     kernel = _DEQUANT_RANGE_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dequant_{member}_{n}x{out}_r{int(range_rows)}",
+            name=f"mlx_iqk_dequant_{member}_{n}x{out}_r{int(range_rows)}",
             input_names=dequant_range_input_names(member),
             output_names=["out"],
             source=dequant_range_source(member, n, out, int(range_rows)),
@@ -920,7 +920,7 @@ __all__ = [
     "TABLE_INPUT_NAMES",
     "WEIGHTS_PER_LANE",
     "WEIGHTS_PER_SIMDGROUP",
-    "IkqKernelError",
+    "IqkKernelError",
     "built_dequant_kernels",
     "built_dequant_range_kernels",
     "built_gemv_kernels",

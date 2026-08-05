@@ -1,6 +1,6 @@
 """Stacked-expert IQ_K module with the ``(x, indices)`` switch interface.
 
-``IkqSwitchLinear`` fills the same per-projection seam as the other quantized
+``IqkSwitchLinear`` fills the same per-projection seam as the other quantized
 switch linears: ``__call__(x, indices)`` over stacked experts, with routing
 and the shared expert staying on the caller's block. Two internal routes:
 
@@ -26,14 +26,14 @@ from __future__ import annotations
 import mlx.core as mx
 from mlx import nn
 
-from mlx_ikq.format import (
+from mlx_iqk.format import (
     IQ2NL_VALUES,
     check_member,
     component_dtypes,
     component_shapes,
 )
-from mlx_ikq.iq1grid import grid_values
-from mlx_ikq.kernels import (
+from mlx_iqk.iq1grid import grid_values
+from mlx_iqk.kernels import (
     DEQUANT_THREADS,
     ROWS_PER_TG,
     check_dequant_geometry,
@@ -94,7 +94,7 @@ def member_table(member: str) -> mx.array:
     return grid_table() if member == "iq1_s_r4" else value_table()
 
 
-class IkqRuntimeError(RuntimeError):
+class IqkRuntimeError(RuntimeError):
     pass
 
 
@@ -102,10 +102,10 @@ _MX_DTYPES = {"uint8": mx.uint8, "uint16": mx.uint16, "uint32": mx.uint32,
               "float16": mx.float16}
 
 
-class IkqSwitchLinear(nn.Module):
+class IqkSwitchLinear(nn.Module):
     """Stacked IQ_K experts for one projection, ``(x, indices)`` interface."""
 
-    mode = "ikq"
+    mode = "iqk"
 
     def __init__(self, member: str, num_experts: int, out_features: int,
                  in_features: int):
@@ -117,7 +117,7 @@ class IkqSwitchLinear(nn.Module):
         self.out_features = int(out_features)
         self.in_features = int(in_features)
         if self.num_experts <= 0:
-            raise IkqRuntimeError(f"num_experts {num_experts} is not positive")
+            raise IqkRuntimeError(f"num_experts {num_experts} is not positive")
         shapes = component_shapes(member, num_experts, out_features, in_features)
         dtypes = component_dtypes(member)
         for name, shape in shapes.items():
@@ -139,12 +139,12 @@ class IkqSwitchLinear(nn.Module):
         shapes = component_shapes(self.member, self.num_experts,
                                   self.out_features, self.in_features)
         if set(streams) != set(shapes):
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"{self.member} needs streams {sorted(shapes)}, got {sorted(streams)}")
         for name, want in shapes.items():
             got = tuple(streams[name].shape)
             if got != want:
-                raise IkqRuntimeError(
+                raise IqkRuntimeError(
                     f"stream {name} must be {want} for "
                     f"{self.num_experts}x{self.out_features}x{self.in_features}, got {got}")
         for name, value in streams.items():
@@ -182,10 +182,10 @@ class IkqSwitchLinear(nn.Module):
         """
         start, rows = int(start), int(rows)
         if rows <= 0 or rows & (rows - 1):
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"range rows {rows} is not a positive power of two")
         if start < 0 or start + rows > self.out_features:
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"range [{start}, {start + rows}) is outside "
                 f"out_features {self.out_features}")
         kernel = dequant_range_kernel(
@@ -254,7 +254,7 @@ class IkqSwitchLinear(nn.Module):
         # so it is 1. Deriving it from the operand rather than from
         # `indices.shape[-1]` is what lets one module serve both seams.
         if rows <= 0 or mats % rows:
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"{mats} token-expert pairs do not tile {rows} activation "
                 f"row(s); the operand and the routing disagree")
         dims = mx.array([mats // rows], dtype=mx.uint32)
@@ -284,7 +284,7 @@ class IkqSwitchLinear(nn.Module):
         tok = toks.reshape(-1).astype(mx.uint32)
         mats = int(sel.size)
         if int(tok.size) != mats:
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"toks carries {int(tok.size)} rows for {mats} pairs")
         blocks = mats * (self.out_features // ROWS_PER_TG)
         threads = gemv_threads(self.in_features)
@@ -317,7 +317,7 @@ class IkqSwitchLinear(nn.Module):
         tok = toks.reshape(-1).astype(mx.uint32)
         mats = int(sel.size)
         if int(tok.size) != mats:
-            raise IkqRuntimeError(
+            raise IqkRuntimeError(
                 f"toks carries {int(tok.size)} rows for {mats} pairs")
         dims = mx.array([mats], dtype=mx.uint32)
         blocks = mats * (self.out_features // ROWS_PER_TG)
@@ -333,5 +333,5 @@ class IkqSwitchLinear(nn.Module):
         return out.reshape(mats, self.out_features)
 
 
-__all__ = ["DECODE_MAT_LIMIT", "IkqRuntimeError", "IkqSwitchLinear",
+__all__ = ["DECODE_MAT_LIMIT", "IqkRuntimeError", "IqkSwitchLinear",
            "grid_table", "member_table", "value_table"]

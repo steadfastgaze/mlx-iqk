@@ -277,7 +277,7 @@ in the DS4 set (1024, 2048, 4096, 8192, 129280) are multiples of 16.
 
 ## 4. Codec and verification plan
 
-- `vendor/ik_llama/ikq_dense.{h,cpp}`: byte-for-byte copies of the four
+- `vendor/ik_llama/iqk_dense.{h,cpp}`: byte-for-byte copies of the four
   quantizers, dequantizers, their `best_index` helpers and index tables,
   `QHelper`, and the value tables, with the same scaffolding changes as the
   existing vendored file (literal row sizes, geometry rejection instead of
@@ -311,7 +311,7 @@ lm_head `(129280, 4096)`.
 
 ## 6. Integration API surface
 
-Module-level functions in `mlx_ikq.dense`, mirroring the `nn.py`
+Module-level functions in `mlx_iqk.dense`, mirroring the `nn.py`
 conventions; the member is an argument, streams are the wire components as
 `mx.array`s in the format module's stream order:
 

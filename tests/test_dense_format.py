@@ -15,8 +15,8 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import codec
-from mlx_ikq import format as fmt
+from mlx_iqk import codec
+from mlx_iqk import format as fmt
 
 WIDTHS = (256, 512, 1024, 2048, 4096, 8192)
 
@@ -54,11 +54,11 @@ def test_bits_per_weight():
 
 
 def test_dense_member_guard():
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.check_dense_member("iq2_ks")
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.check_dense_member("iq3_k")
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.check_any_member("iq3_k")
 
 
@@ -80,17 +80,17 @@ def test_component_shapes_cover_every_byte_once(member):
 @pytest.mark.parametrize("member", fmt.DENSE_MEMBERS)
 def test_pack_rejects_a_wire_row_of_the_wrong_length(member):
     wire = np.zeros((2, fmt.ik_row_bytes(member, 2048) + 1), dtype=np.uint8)
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.pack(member, wire, 2048)
 
 
 def test_vendored_block_sizes_match_the_wire_spec():
     lib = codec.load_dense()
     for member, expect in DENSE_ROW_BYTES.items():
-        assert getattr(lib, f"ikq_block_size_{member}")() == expect
+        assert getattr(lib, f"iqk_block_size_{member}")() == expect
         meta = 4 if member == "iq4_ks" else 0
-        assert getattr(lib, f"ikq_row_size_{member}")(2048) == meta + expect * 8
-        assert getattr(lib, f"ikq_row_size_{member}")(2047) == 0
+        assert getattr(lib, f"iqk_row_size_{member}")(2048) == meta + expect * 8
+        assert getattr(lib, f"iqk_row_size_{member}")(2047) == 0
 
 
 # -- the IQ6_K table pin ------------------------------------------------------

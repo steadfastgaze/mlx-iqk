@@ -5,7 +5,7 @@ straight from field values, using the struct layout as written in
 ``ggml-common.h`` and the index arithmetic as written in the encoders. They exist so a test can drive the
 decode over its whole value space instead of over whatever a quantizer
 happens to emit, and they are deliberately not written in terms of
-:mod:`mlx_ikq.format`: a packer that shared code with the module under test
+:mod:`mlx_iqk.format`: a packer that shared code with the module under test
 would agree with it for the wrong reason.
 """
 

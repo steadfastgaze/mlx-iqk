@@ -32,7 +32,7 @@
 // here is built that way; tests/test_vendor_upstream.py compares the decode
 // against ik_llama's own libggml byte for byte, which pins the equivalence.
 
-#include "ikq_iq1sr4.h"
+#include "iqk_iq1sr4.h"
 
 #include <cfloat>
 #include <cmath>
@@ -45,26 +45,26 @@
 #define IQ1S_DELTA 0.125f
 #define GROUP_MAX_EPS_IQ1_S 1e-12f
 
-typedef uint16_t ikq_half;
+typedef uint16_t iqk_half;
 
 // ggml-impl.h, the NEON pair. On any host without __fp16 the same rounding is
 // obtained through the C++ conversion of the compiler's _Float16.
 #if defined(__ARM_NEON) && !defined(_MSC_VER)
-typedef __fp16 ikq_half_internal;
+typedef __fp16 iqk_half_internal;
 #else
-typedef _Float16 ikq_half_internal;
+typedef _Float16 iqk_half_internal;
 #endif
 
-static inline float ikq_fp16_to_fp32(ikq_half h) {
-    ikq_half_internal tmp;
-    memcpy(&tmp, &h, sizeof(ikq_half));
+static inline float iqk_fp16_to_fp32(iqk_half h) {
+    iqk_half_internal tmp;
+    memcpy(&tmp, &h, sizeof(iqk_half));
     return (float)tmp;
 }
 
-static inline ikq_half ikq_fp32_to_fp16(float f) {
-    ikq_half res;
-    ikq_half_internal tmp = f;
-    memcpy(&res, &tmp, sizeof(ikq_half));
+static inline iqk_half iqk_fp32_to_fp16(float f) {
+    iqk_half res;
+    iqk_half_internal tmp = f;
+    memcpy(&res, &tmp, sizeof(iqk_half));
     return res;
 }
 
@@ -503,7 +503,7 @@ size_t quantize_iq1_s_r4_impl(const float * src, void * dst, int64_t nrows,
     auto row_size = row_size_iq1_s_r4(n_per_row);
     char * cy = (char *)dst;
     for (int row = 0; row < nrows; row += 4) {
-        ikq_half * dptr = (ikq_half *)cy;
+        iqk_half * dptr = (iqk_half *)cy;
         auto y = (block_iq1_s_r4 *)(dptr + 4);
         for (int k = 0; k < 4; ++k) max[k] = 0;
         for (int ibl = 0; ibl < nblock; ++ibl) {
@@ -560,7 +560,7 @@ size_t quantize_iq1_s_r4_impl(const float * src, void * dst, int64_t nrows,
             }
         }
         for (int k = 0; k < 4; ++k) {
-            dptr[k] = ikq_fp32_to_fp16(1.0625f*max[k]/15);;
+            dptr[k] = iqk_fp32_to_fp16(1.0625f*max[k]/15);;
             invd[k] = max[k] ? 15/max[k] : 0.f;
         }
         for (int ibl = 0; ibl < nblock; ++ibl) {
@@ -580,10 +580,10 @@ size_t quantize_iq1_s_r4_impl(const float * src, void * dst, int64_t nrows,
 // The static iq1s_grid lookup becomes the derived decode table.
 void dequantize_group_iq1_s_r4(const block_iq1_s_r4 * x, float * y, int64_t n) {
     const uint64_t * iq1s_grid = iq1s_tables().decode.data();
-    auto dptr = (const ikq_half *)x;
+    auto dptr = (const iqk_half *)x;
     x = (const block_iq1_s_r4 *)(dptr + 4);
     float d[4];
-    for (int k = 0; k < 4; ++k) d[k] = ikq_fp16_to_fp32(dptr[k]);
+    for (int k = 0; k < 4; ++k) d[k] = iqk_fp16_to_fp32(dptr[k]);
     int n_per_row = n/4;
     int nblock = n_per_row/32;
     float * yk[4];
@@ -605,22 +605,22 @@ void dequantize_group_iq1_s_r4(const block_iq1_s_r4 * x, float * y, int64_t n) {
 
 extern "C" {
 
-size_t ikq_row_size_iq1_s_r4(int64_t n_per_row) {
+size_t iqk_row_size_iq1_s_r4(int64_t n_per_row) {
     return row_size_iq1_s_r4(n_per_row);
 }
 
-size_t ikq_block_size_iq1_s_r4(void) {
+size_t iqk_block_size_iq1_s_r4(void) {
     return sizeof(block_iq1_s_r4);
 }
 
-size_t ikq_quantize_iq1_s_r4(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq1_s_r4(const float * src, void * dst, int64_t nrows,
                              int64_t n_per_row, const float * imatrix) {
     if (nrows <= 0 || nrows % 4) return 0;
     if (!row_size_iq1_s_r4(n_per_row)) return 0;
     return quantize_iq1_s_r4_impl(src, dst, nrows, n_per_row, imatrix);
 }
 
-int ikq_dequantize_iq1_s_r4(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq1_s_r4(const void * src, float * dst, int64_t nrows,
                             int64_t n_per_row) {
     if (nrows <= 0 || nrows % 4) return 1;
     size_t row_size = row_size_iq1_s_r4(n_per_row);

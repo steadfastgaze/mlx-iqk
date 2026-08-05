@@ -43,11 +43,11 @@ from __future__ import annotations
 
 import mlx.core as mx
 
-from mlx_ikq.format import SUB_WEIGHTS, check_dense_member, check_row_width
-from mlx_ikq.kernels import (
+from mlx_iqk.format import SUB_WEIGHTS, check_dense_member, check_row_width
+from mlx_iqk.kernels import (
     ROWS_PER_TG,
     WEIGHTS_PER_SIMDGROUP,
-    IkqKernelError,
+    IqkKernelError,
     _log2,
     _xload,
     simdgroups,
@@ -71,12 +71,12 @@ def check_dense_gemv_geometry(in_features: int, out_features: int) -> tuple[int,
     """Reject any geometry the dense decode GEMV does not cover."""
     n = check_row_width(in_features)
     if n not in DENSE_SUPPORTED_IN_FEATURES:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"the dense decode gemv is sized per input width and covers "
             f"{DENSE_SUPPORTED_IN_FEATURES}, got {in_features}")
     out = int(out_features)
     if out <= 0 or out % ROWS_PER_TG:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out_features} is not a positive multiple of {ROWS_PER_TG}")
     return n, out
 
@@ -85,15 +85,15 @@ def check_dense_dequant_geometry(in_features: int, out_features: int) -> tuple[i
     """Reject any geometry the dense dequantization does not cover."""
     n = check_row_width(in_features)
     if n not in DENSE_SUPPORTED_IN_FEATURES:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"the dense dequantization is sized per input width and covers "
             f"{DENSE_SUPPORTED_IN_FEATURES}, got {in_features}")
     out = int(out_features)
     if out <= 0:
-        raise IkqKernelError(f"out_features {out_features} is not positive")
+        raise IqkKernelError(f"out_features {out_features} is not positive")
     groups = n // 32
     if DENSE_DEQUANT_THREADS % groups:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"in_features {in_features} does not tile {DENSE_DEQUANT_THREADS} threads")
     return n, out
 
@@ -310,10 +310,10 @@ def dense_dequant_range_source(member: str, in_features: int, out_features: int,
     n = in_features
     groups_per_row = n // 32
     if range_rows <= 0 or range_rows & (range_rows - 1):
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"range_rows {range_rows} is not a positive power of two")
     if range_rows > out_features:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"range_rows {range_rows} exceeds out_features {out_features}")
     stores = "\n".join(
         f"    op_[{q}] = half4({', '.join(f'half(wv{4 * q + i}_)' for i in range(4))});"
@@ -382,13 +382,13 @@ def dense_gemv_kernel(member: str, in_features: int, out_features: int,
     check_dense_member(member)
     n, out = check_dense_gemv_geometry(in_features, out_features)
     if out % rows_per_tg:
-        raise IkqKernelError(
+        raise IqkKernelError(
             f"out_features {out} is not a multiple of rows_per_tg {rows_per_tg}")
     key = (member, n, out, rows_per_tg)
     kernel = _DENSE_GEMV_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dense_gemv_{member}_{n}x{out}_r{rows_per_tg}",
+            name=f"mlx_iqk_dense_gemv_{member}_{n}x{out}_r{rows_per_tg}",
             input_names=dense_gemv_input_names(member),
             output_names=["out"],
             source=dense_gemv_source(member, n, out, rows_per_tg),
@@ -405,7 +405,7 @@ def dense_dequant_kernel(member: str, in_features: int, out_features: int):
     kernel = _DENSE_DEQUANT_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dense_dequant_{member}_{n}x{out}",
+            name=f"mlx_iqk_dense_dequant_{member}_{n}x{out}",
             input_names=dense_dequant_input_names(member),
             output_names=["out"],
             source=dense_dequant_source(member, n, out),
@@ -423,7 +423,7 @@ def dense_dequant_range_kernel(member: str, in_features: int, out_features: int,
     kernel = _DENSE_DEQUANT_RANGE_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dense_dequant_{member}_{n}x{out}_r{int(range_rows)}",
+            name=f"mlx_iqk_dense_dequant_{member}_{n}x{out}_r{int(range_rows)}",
             input_names=dense_dequant_range_input_names(member),
             output_names=["out"],
             source=dense_dequant_range_source(member, n, out, int(range_rows)),

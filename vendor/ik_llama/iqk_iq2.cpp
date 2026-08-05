@@ -31,7 +31,7 @@
 // portable path so packed bytes are reproducible independently of the host's
 // instruction set.
 
-#include "ikq_iq2.h"
+#include "iqk_iq2.h"
 
 #include <algorithm>
 #include <array>
@@ -43,37 +43,37 @@
 
 #define QK_K 256
 
-typedef uint16_t ikq_half;
+typedef uint16_t iqk_half;
 
 // ggml-impl.h, the NEON pair. On any host without __fp16 the same rounding is
 // obtained through the C++ conversion of the compiler's _Float16.
 #if defined(__ARM_NEON) && !defined(_MSC_VER)
-typedef __fp16 ikq_half_internal;
+typedef __fp16 iqk_half_internal;
 #else
-typedef _Float16 ikq_half_internal;
+typedef _Float16 iqk_half_internal;
 #endif
 
-static inline float ikq_fp16_to_fp32(ikq_half h) {
-    ikq_half_internal tmp;
-    memcpy(&tmp, &h, sizeof(ikq_half));
+static inline float iqk_fp16_to_fp32(iqk_half h) {
+    iqk_half_internal tmp;
+    memcpy(&tmp, &h, sizeof(iqk_half));
     return (float)tmp;
 }
 
-static inline ikq_half ikq_fp32_to_fp16(float f) {
-    ikq_half res;
-    ikq_half_internal tmp = f;
-    memcpy(&res, &tmp, sizeof(ikq_half));
+static inline iqk_half iqk_fp32_to_fp16(float f) {
+    iqk_half res;
+    iqk_half_internal tmp = f;
+    memcpy(&res, &tmp, sizeof(iqk_half));
     return res;
 }
 
 // ggml-common.h
 typedef struct {
-    ikq_half d;
+    iqk_half d;
     uint16_t extra;
     uint8_t  scales[QK_K / 32];
     uint8_t  qs[QK_K / 4];
 } block_iq2_k;
-static_assert(sizeof(block_iq2_k) == sizeof(ikq_half) + sizeof(uint16_t) + QK_K / 32 + QK_K / 4,
+static_assert(sizeof(block_iq2_k) == sizeof(iqk_half) + sizeof(uint16_t) + QK_K / 32 + QK_K / 4,
               "wrong iq2_k block size/padding");
 
 typedef struct {
@@ -222,7 +222,7 @@ void quantize_row_iq2_k_impl(const float * x, void * vy, int n_per_row,
     for (int ibl = 0; ibl < n_per_row / QK_K; ++ibl) {
 
         memset(&y[ibl], 0, sizeof(block_iq2_k));
-        y[ibl].d = ikq_fp32_to_fp16(0.f);
+        y[ibl].d = iqk_fp32_to_fp16(0.f);
 
         const float * xbl = x + ibl * QK_K;
         float sumx2 = 0;
@@ -341,7 +341,7 @@ void quantize_row_iq2_k_impl(const float * x, void * vy, int n_per_row,
                 }
             }
         }
-        y[ibl].d = ikq_fp32_to_fp16(1.030f * (sumq2 > 0 ? sumqx / sumq2 : d));
+        y[ibl].d = iqk_fp32_to_fp16(1.030f * (sumq2 > 0 ? sumqx / sumq2 : d));
     }
 }
 
@@ -354,8 +354,8 @@ void quantize_row_iq2_ks_impl(const float * x, void * vy, int n_per_row,
     constexpr int kMax_i1 = 3 * kBlockSize / 4;
     constexpr int kMin_i3 = kBlockSize / 4;
 
-    ikq_half * dptr = (ikq_half *)vy;
-    *dptr = ikq_fp32_to_fp16(0.f);
+    iqk_half * dptr = (iqk_half *)vy;
+    *dptr = iqk_fp32_to_fp16(0.f);
 
     block_iq2_ks * y = (block_iq2_ks *)(dptr + 1);
 
@@ -495,7 +495,7 @@ void quantize_row_iq2_ks_impl(const float * x, void * vy, int n_per_row,
             }
         }
     }
-    *dptr = ikq_fp32_to_fp16(1.030f * (sumq2 > 0 ? sumqx / sumq2 : d));
+    *dptr = iqk_fp32_to_fp16(1.030f * (sumq2 > 0 ? sumqx / sumq2 : d));
 }
 
 // iqk_quantize.cpp:1356-1385
@@ -505,7 +505,7 @@ void dequantize_row_iq2_k(const block_iq2_k * x, float * y, int64_t k) {
 
     for (int i = 0; i < nb; i++) {
 
-        const float d = ikq_fp16_to_fp32(x[i].d);
+        const float d = iqk_fp16_to_fp32(x[i].d);
         const uint8_t * qs = x[i].qs;
 
         uint16_t extra = x[i].extra;
@@ -533,8 +533,8 @@ void dequantize_row_iq2_ks(const block_iq2_ks * x, float * y, int64_t k) {
     assert(k % QK_K == 0);
     const int nb = k / QK_K;
 
-    const ikq_half * dptr = (const ikq_half *)x;
-    const float d = ikq_fp16_to_fp32(*dptr);
+    const iqk_half * dptr = (const iqk_half *)x;
+    const float d = iqk_fp16_to_fp32(*dptr);
     x = (const block_iq2_ks *)(dptr + 1);
 
     for (int i = 0; i < nb; i++) {
@@ -569,29 +569,29 @@ inline bool geometry_ok(int64_t n_per_row) {
 
 extern "C" {
 
-size_t ikq_row_size_iq2_k(int64_t n_per_row) {
+size_t iqk_row_size_iq2_k(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
     return sizeof(block_iq2_k) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_row_size_iq2_ks(int64_t n_per_row) {
+size_t iqk_row_size_iq2_ks(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
-    return sizeof(ikq_half) + sizeof(block_iq2_ks) * (size_t)(n_per_row / QK_K);
+    return sizeof(iqk_half) + sizeof(block_iq2_ks) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_quantize_iq2_k(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq2_k(const float * src, void * dst, int64_t nrows,
                           int64_t n_per_row, const float * imatrix) {
-    const size_t row_size = ikq_row_size_iq2_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq2_k(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     QHelper helper(imatrix, (int)n_per_row, 16);
     helper.quantize((int)nrows, src, dst, (int)row_size, quantize_row_iq2_k_impl);
     return (size_t)nrows * row_size;
 }
 
-size_t ikq_quantize_iq2_ks(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq2_ks(const float * src, void * dst, int64_t nrows,
                            int64_t n_per_row, const float * imatrix) {
     constexpr int kBlockSize = 32;
-    const size_t row_size = ikq_row_size_iq2_ks(n_per_row);
+    const size_t row_size = iqk_row_size_iq2_ks(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     const int nblock = (int)(n_per_row / QK_K);
     std::vector<float> all_scales(nblock * (QK_K / kBlockSize));
@@ -607,9 +607,9 @@ size_t ikq_quantize_iq2_ks(const float * src, void * dst, int64_t nrows,
     return (size_t)nrows * row_size;
 }
 
-int ikq_dequantize_iq2_k(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq2_k(const void * src, float * dst, int64_t nrows,
                          int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq2_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq2_k(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -619,9 +619,9 @@ int ikq_dequantize_iq2_k(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-int ikq_dequantize_iq2_ks(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq2_ks(const void * src, float * dst, int64_t nrows,
                           int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq2_ks(n_per_row);
+    const size_t row_size = iqk_row_size_iq2_ks(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -631,7 +631,7 @@ int ikq_dequantize_iq2_ks(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-size_t ikq_block_size_iq2_k(void) { return sizeof(block_iq2_k); }
-size_t ikq_block_size_iq2_ks(void) { return sizeof(block_iq2_ks); }
+size_t iqk_block_size_iq2_k(void) { return sizeof(block_iq2_k); }
+size_t iqk_block_size_iq2_ks(void) { return sizeof(block_iq2_ks); }
 
 }  // extern "C"

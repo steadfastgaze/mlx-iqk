@@ -38,7 +38,7 @@
 // instruction-set-specific quantizer variant, so no path pinning is
 // involved.
 
-#include "ikq_dense.h"
+#include "iqk_dense.h"
 
 #include <algorithm>
 #include <cassert>
@@ -48,26 +48,26 @@
 
 #define QK_K 256
 
-typedef uint16_t ikq_half;
+typedef uint16_t iqk_half;
 
 // ggml-impl.h, the NEON pair. On any host without __fp16 the same rounding is
 // obtained through the C++ conversion of the compiler's _Float16.
 #if defined(__ARM_NEON) && !defined(_MSC_VER)
-typedef __fp16 ikq_half_internal;
+typedef __fp16 iqk_half_internal;
 #else
-typedef _Float16 ikq_half_internal;
+typedef _Float16 iqk_half_internal;
 #endif
 
-static inline float ikq_fp16_to_fp32(ikq_half h) {
-    ikq_half_internal tmp;
-    memcpy(&tmp, &h, sizeof(ikq_half));
+static inline float iqk_fp16_to_fp32(iqk_half h) {
+    iqk_half_internal tmp;
+    memcpy(&tmp, &h, sizeof(iqk_half));
     return (float)tmp;
 }
 
-static inline ikq_half ikq_fp32_to_fp16(float f) {
-    ikq_half res;
-    ikq_half_internal tmp = f;
-    memcpy(&res, &tmp, sizeof(ikq_half));
+static inline iqk_half iqk_fp32_to_fp16(float f) {
+    iqk_half res;
+    iqk_half_internal tmp = f;
+    memcpy(&res, &tmp, sizeof(iqk_half));
     return res;
 }
 
@@ -80,34 +80,34 @@ static_assert(sizeof(block_iq4_ks) == QK_K / 32 + QK_K / 2,
               "wrong iq4_ks block size/padding");
 
 typedef struct {
-    ikq_half d;
+    iqk_half d;
     uint16_t extra;
     uint8_t  scales_h[QK_K / 64];
     uint8_t  scales_l[QK_K / 32];
     uint8_t  qs[QK_K / 2];
 } block_iq4_k;
-static_assert(sizeof(block_iq4_k) == sizeof(ikq_half) + sizeof(uint16_t) + QK_K / 2 + 3 * QK_K / 64,
+static_assert(sizeof(block_iq4_k) == sizeof(iqk_half) + sizeof(uint16_t) + QK_K / 2 + 3 * QK_K / 64,
               "wrong iq4_k block size/padding");
 
 typedef struct {
-    ikq_half d;
+    iqk_half d;
     uint16_t extra;
     uint8_t  scales_h[QK_K / 64];
     uint8_t  scales_l[QK_K / 32];
     uint8_t  qs[QK_K / 2];
     uint8_t  qh[QK_K / 8];
 } block_iq5_k;
-static_assert(sizeof(block_iq5_k) == sizeof(ikq_half) + sizeof(uint16_t) + QK_K / 2 + QK_K / 8 + 3 * QK_K / 64,
+static_assert(sizeof(block_iq5_k) == sizeof(iqk_half) + sizeof(uint16_t) + QK_K / 2 + QK_K / 8 + 3 * QK_K / 64,
               "wrong iq5_k block size/padding");
 
 typedef struct {
-    ikq_half d;
+    iqk_half d;
     uint16_t extra;
     int8_t   scales[QK_K / 16];
     uint8_t  qs[QK_K / 2];
     uint8_t  qh[QK_K / 4];
 } block_iq6_k;
-static_assert(sizeof(block_iq6_k) == sizeof(ikq_half) + sizeof(uint16_t) + QK_K / 2 + QK_K / 4 + QK_K / 16,
+static_assert(sizeof(block_iq6_k) == sizeof(iqk_half) + sizeof(uint16_t) + QK_K / 2 + QK_K / 4 + QK_K / 16,
               "wrong iq6_k block size/padding");
 
 static const int8_t iq4k_values[32] = {
@@ -271,7 +271,7 @@ void quantize_row_iq4_k_impl_bs16(const int super_block_size, const int block_si
     sigma2 *= 2.f/super_block_size;
 
     memset(y, 0, sizeof(block_iq4_k));
-    y->d = ikq_fp32_to_fp16(0.f);
+    y->d = iqk_fp32_to_fp16(0.f);
 
     uint16_t * scales_h = (uint16_t *)y->scales_h;
 
@@ -372,7 +372,7 @@ void quantize_row_iq4_k_impl_bs16(const int super_block_size, const int block_si
         }
     }
     float d = -max_scale/32;
-    y->d = ikq_fp32_to_fp16(d);
+    y->d = iqk_fp32_to_fp16(d);
     y->extra = extra;
     float id = d ? 1/d : 0.f;
     float sumqx = 0, sumq2 = 0;
@@ -404,7 +404,7 @@ void quantize_row_iq4_k_impl_bs16(const int super_block_size, const int block_si
         else y->scales_l[ib/2] |= (l_l << 4);
         scales_h[ib/8] |= (l_h << 2*(ib%8));
     }
-    if (sumq2 > 0) y->d = ikq_fp32_to_fp16(sumqx/sumq2);
+    if (sumq2 > 0) y->d = iqk_fp32_to_fp16(sumqx/sumq2);
 
     for (int i = 0; i < super_block_size/32; ++i) {
         for (int j = 0; j < 16; ++j) {
@@ -583,7 +583,7 @@ void quantize_row_iq5_k_impl(const float * x, void * vy, int n_per_row, const fl
     for (int ibl = 0; ibl < n_per_row/QK_K; ++ibl) {
 
         memset(&y[ibl], 0, sizeof(block_iq5_k));
-        y[ibl].d = ikq_fp32_to_fp16(0.f);
+        y[ibl].d = iqk_fp32_to_fp16(0.f);
 
         const float * xbl = x + ibl*QK_K;
         float sumx2 = 0;
@@ -704,7 +704,7 @@ void quantize_row_iq5_k_impl(const float * x, void * vy, int n_per_row, const fl
 
         if (!max_abs_scale) continue;
         float d = -max_scale/32;
-        y[ibl].d = ikq_fp32_to_fp16(d);
+        y[ibl].d = iqk_fp32_to_fp16(d);
         y[ibl].extra = extra;
 
         float id = 1/d;
@@ -743,7 +743,7 @@ void quantize_row_iq5_k_impl(const float * x, void * vy, int n_per_row, const fl
                 }
             }
         }
-        if (sumq2 > 0) y[ibl].d = ikq_fp32_to_fp16(sumqx/sumq2);
+        if (sumq2 > 0) y[ibl].d = iqk_fp32_to_fp16(sumqx/sumq2);
 
     }
 
@@ -763,7 +763,7 @@ void quantize_row_iq6_k_impl(const float * x, void * vy, int n_per_row, const fl
     for (int ibl = 0; ibl < n_per_row/QK_K; ++ibl) {
 
         memset(&y[ibl], 0, sizeof(block_iq6_k));
-        y[ibl].d = ikq_fp32_to_fp16(0.f);
+        y[ibl].d = iqk_fp32_to_fp16(0.f);
 
         const float * xbl = x + ibl*QK_K;
         float sumx2 = 0;
@@ -884,7 +884,7 @@ void quantize_row_iq6_k_impl(const float * x, void * vy, int n_per_row, const fl
 
         if (!max_abs_scale) continue;
         float d = -max_scale/127;
-        y[ibl].d = ikq_fp32_to_fp16(d);
+        y[ibl].d = iqk_fp32_to_fp16(d);
         y[ibl].extra = extra;
 
         float id = 1/d;
@@ -921,7 +921,7 @@ void quantize_row_iq6_k_impl(const float * x, void * vy, int n_per_row, const fl
                 }
             }
         }
-        if (sumq2 > 0) y[ibl].d = ikq_fp32_to_fp16(sumqx/sumq2);
+        if (sumq2 > 0) y[ibl].d = iqk_fp32_to_fp16(sumqx/sumq2);
 
     }
 }
@@ -958,7 +958,7 @@ void dequantize_row_iq4_k(const block_iq4_k * x, float * y, int64_t k) {
 
         const uint8_t * qs = x[i].qs;
 
-        const float d = ikq_fp16_to_fp32(x[i].d);
+        const float d = iqk_fp16_to_fp32(x[i].d);
 
         uint16_t extra = x[i].extra;
 
@@ -986,7 +986,7 @@ void dequantize_row_iq5_k(const block_iq5_k * x, float * y, int64_t k) {
 
     for (int i = 0; i < nb; i++) {
 
-        const float d = ikq_fp16_to_fp32(x[i].d);
+        const float d = iqk_fp16_to_fp32(x[i].d);
         const uint8_t * qs = x[i].qs;
         const uint8_t * qh = x[i].qh;
         const uint8_t * sl = x[i].scales_l;
@@ -1028,7 +1028,7 @@ void dequantize_row_iq6_k(const block_iq6_k * x, float * y, int64_t k) {
 
     for (int i = 0; i < nb; i++) {
 
-        const float d = ikq_fp16_to_fp32(x[i].d);
+        const float d = iqk_fp16_to_fp32(x[i].d);
         const uint8_t * qs = x[i].qs;
         const uint8_t * qh = x[i].qh;
         const int8_t  * sl = x[i].scales;
@@ -1074,30 +1074,30 @@ inline bool geometry_ok(int64_t n_per_row) {
 
 extern "C" {
 
-size_t ikq_row_size_iq4_ks(int64_t n_per_row) {
+size_t iqk_row_size_iq4_ks(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
     return sizeof(float) + sizeof(block_iq4_ks) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_row_size_iq4_k(int64_t n_per_row) {
+size_t iqk_row_size_iq4_k(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
     return sizeof(block_iq4_k) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_row_size_iq5_k(int64_t n_per_row) {
+size_t iqk_row_size_iq5_k(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
     return sizeof(block_iq5_k) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_row_size_iq6_k(int64_t n_per_row) {
+size_t iqk_row_size_iq6_k(int64_t n_per_row) {
     if (!geometry_ok(n_per_row)) return 0;
     return sizeof(block_iq6_k) * (size_t)(n_per_row / QK_K);
 }
 
-size_t ikq_quantize_iq4_ks(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq4_ks(const float * src, void * dst, int64_t nrows,
                            int64_t n_per_row, const float * imatrix) {
     constexpr int kBlockSize = 32;
-    const size_t row_size = ikq_row_size_iq4_ks(n_per_row);
+    const size_t row_size = iqk_row_size_iq4_ks(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     float weight[kBlockSize];
     std::vector<float> all_scales(n_per_row / kBlockSize);
@@ -1111,9 +1111,9 @@ size_t ikq_quantize_iq4_ks(const float * src, void * dst, int64_t nrows,
     return (size_t)nrows * row_size;
 }
 
-size_t ikq_quantize_iq4_k(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq4_k(const float * src, void * dst, int64_t nrows,
                           int64_t n_per_row, const float * imatrix) {
-    const size_t row_size = ikq_row_size_iq4_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq4_k(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     uint8_t L[QK_K];
     float weight[16];
@@ -1133,18 +1133,18 @@ size_t ikq_quantize_iq4_k(const float * src, void * dst, int64_t nrows,
     return (size_t)nrows * row_size;
 }
 
-size_t ikq_quantize_iq5_k(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq5_k(const float * src, void * dst, int64_t nrows,
                           int64_t n_per_row, const float * imatrix) {
-    const size_t row_size = ikq_row_size_iq5_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq5_k(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     QHelper helper(imatrix, (int)n_per_row, 16);
     helper.quantize((int)nrows, src, dst, (int)row_size, quantize_row_iq5_k_impl);
     return (size_t)nrows * row_size;
 }
 
-size_t ikq_quantize_iq6_k(const float * src, void * dst, int64_t nrows,
+size_t iqk_quantize_iq6_k(const float * src, void * dst, int64_t nrows,
                           int64_t n_per_row, const float * imatrix) {
-    const size_t row_size = ikq_row_size_iq6_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq6_k(n_per_row);
     if (!row_size || nrows <= 0) return 0;
     // iqk_quantize.cpp:3790-3806: the quantizer searches against the float
     // promotion of the integer table; only the dequantizer runs the cubic.
@@ -1161,9 +1161,9 @@ size_t ikq_quantize_iq6_k(const float * src, void * dst, int64_t nrows,
     return (size_t)nrows * row_size;
 }
 
-int ikq_dequantize_iq4_ks(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq4_ks(const void * src, float * dst, int64_t nrows,
                           int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq4_ks(n_per_row);
+    const size_t row_size = iqk_row_size_iq4_ks(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -1173,9 +1173,9 @@ int ikq_dequantize_iq4_ks(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-int ikq_dequantize_iq4_k(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq4_k(const void * src, float * dst, int64_t nrows,
                          int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq4_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq4_k(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -1185,9 +1185,9 @@ int ikq_dequantize_iq4_k(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-int ikq_dequantize_iq5_k(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq5_k(const void * src, float * dst, int64_t nrows,
                          int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq5_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq5_k(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -1197,9 +1197,9 @@ int ikq_dequantize_iq5_k(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-int ikq_dequantize_iq6_k(const void * src, float * dst, int64_t nrows,
+int iqk_dequantize_iq6_k(const void * src, float * dst, int64_t nrows,
                          int64_t n_per_row) {
-    const size_t row_size = ikq_row_size_iq6_k(n_per_row);
+    const size_t row_size = iqk_row_size_iq6_k(n_per_row);
     if (!row_size || nrows < 0) return 1;
     const char * s = (const char *)src;
     for (int64_t r = 0; r < nrows; ++r) {
@@ -1209,9 +1209,9 @@ int ikq_dequantize_iq6_k(const void * src, float * dst, int64_t nrows,
     return 0;
 }
 
-size_t ikq_block_size_iq4_ks(void) { return sizeof(block_iq4_ks); }
-size_t ikq_block_size_iq4_k(void)  { return sizeof(block_iq4_k); }
-size_t ikq_block_size_iq5_k(void)  { return sizeof(block_iq5_k); }
-size_t ikq_block_size_iq6_k(void)  { return sizeof(block_iq6_k); }
+size_t iqk_block_size_iq4_ks(void) { return sizeof(block_iq4_ks); }
+size_t iqk_block_size_iq4_k(void)  { return sizeof(block_iq4_k); }
+size_t iqk_block_size_iq5_k(void)  { return sizeof(block_iq5_k); }
+size_t iqk_block_size_iq6_k(void)  { return sizeof(block_iq6_k); }
 
 }  // extern "C"

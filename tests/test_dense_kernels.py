@@ -23,18 +23,18 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import codec
-from mlx_ikq import format as fmt
-from mlx_ikq.dense import (
+from mlx_iqk import codec
+from mlx_iqk import format as fmt
+from mlx_iqk.dense import (
     check_dense_streams,
     dense_dequantized,
     dense_dequantized_range,
     dense_gemv,
     dense_linear,
 )
-from mlx_ikq.dense_kernels import (
+from mlx_iqk.dense_kernels import (
     DENSE_SUPPORTED_IN_FEATURES,
-    IkqKernelError,
+    IqkKernelError,
     dense_dequant_input_names,
     dense_dequant_kernel,
     dense_gemv_input_names,
@@ -80,25 +80,25 @@ def _fp16_ulp(got: np.ndarray, want: np.ndarray) -> np.ndarray:
 @pytest.mark.parametrize("member", fmt.DENSE_MEMBERS)
 @pytest.mark.parametrize("bad", [512, 1536, 2560, 3072, 4352, 16384])
 def test_dense_gemv_refuses_unsized_input_widths(member, bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         dense_gemv_kernel(member, bad, OUT_FEATURES)
 
 
 @pytest.mark.parametrize("member", fmt.DENSE_MEMBERS)
 @pytest.mark.parametrize("bad", [512, 2560, 16384])
 def test_dense_dequant_refuses_unsized_input_widths(member, bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         dense_dequant_kernel(member, bad, OUT_FEATURES)
 
 
 @pytest.mark.parametrize("bad", [24, 40, 100])
 def test_dense_gemv_refuses_out_features_that_do_not_tile(bad):
-    with pytest.raises(IkqKernelError):
+    with pytest.raises(IqkKernelError):
         dense_gemv_kernel("iq4_ks", 2048, bad)
 
 
 def test_dense_gemv_refuses_a_row_width_that_is_not_a_block_multiple():
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         dense_gemv_kernel("iq4_ks", 4000, OUT_FEATURES)
 
 
@@ -126,17 +126,17 @@ def test_kernel_input_names_follow_the_format_stream_order(member):
 
 @pytest.mark.parametrize("member", fmt.DENSE_MEMBERS)
 def test_stream_checks_fail_closed(member):
-    from mlx_ikq.dense import IkqDenseError
+    from mlx_iqk.dense import IqkDenseError
     streams, _ = _random_case(member, OUT_FEATURES, 1024, seed=3)
     good = check_dense_streams(member, streams, OUT_FEATURES, 1024)
     assert len(good) == len(streams)
     broken = dict(streams)
     broken.pop("qs")
-    with pytest.raises(IkqDenseError):
+    with pytest.raises(IqkDenseError):
         check_dense_streams(member, broken, OUT_FEATURES, 1024)
     broken = dict(streams)
     broken["scl"] = broken["scl"][:, :-1]
-    with pytest.raises(IkqDenseError):
+    with pytest.raises(IqkDenseError):
         check_dense_streams(member, broken, OUT_FEATURES, 1024)
 
 

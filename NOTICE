@@ -1,11 +1,11 @@
-mlx-ikq
-Copyright (c) 2026 mlx-ikq contributors
+mlx-iqk
+Copyright (c) 2026 mlx-iqk contributors
 
 This product includes software developed as part of ik_llama.cpp, which is
 itself derived from llama.cpp and ggml.
 
-  vendor/ik_llama/ikq_iq2.cpp
-  vendor/ik_llama/ikq_iq1sr4.cpp
+  vendor/ik_llama/iqk_iq2.cpp
+  vendor/ik_llama/iqk_iq1sr4.cpp
 
   MIT License
   Copyright (c) 2023-2024 The ggml authors

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import mlx.core as mx
 
-from mlx_ikq.dense_kernels import (
+from mlx_iqk.dense_kernels import (
     DENSE_DEQUANT_THREADS,
     TABLE_ENTRIES,
     check_dense_dequant_geometry,
@@ -29,8 +29,8 @@ from mlx_ikq.dense_kernels import (
     dense_dequant_input_names,
     dense_gemv_input_names,
 )
-from mlx_ikq.format import SUB_WEIGHTS, check_dense_member, check_member
-from mlx_ikq.kernels import (
+from mlx_iqk.format import SUB_WEIGHTS, check_dense_member, check_member
+from mlx_iqk.kernels import (
     DEQUANT_THREADS,
     ROWS_PER_TG,
     WEIGHTS_PER_SIMDGROUP,
@@ -370,7 +370,7 @@ def gemv_floor_kernel(member: str, in_features: int, out_features: int,
     kernel = _FLOOR_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_gemv_floor_{member}_{in_features}x{out_features}",
+            name=f"mlx_iqk_gemv_floor_{member}_{in_features}x{out_features}",
             input_names=gemv_input_names(member),
             output_names=["out"],
             source=gemv_floor_source(member, in_features, out_features, rows_per_tg),
@@ -384,7 +384,7 @@ def dequant_floor_kernel(member: str, in_features: int, out_features: int):
     kernel = _FLOOR_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dequant_floor_{member}_{in_features}x{out_features}",
+            name=f"mlx_iqk_dequant_floor_{member}_{in_features}x{out_features}",
             input_names=dequant_input_names(member),
             output_names=["out"],
             source=dequant_floor_source(member, in_features, out_features),
@@ -399,7 +399,7 @@ def dense_gemv_floor_kernel(member: str, in_features: int, out_features: int,
     kernel = _FLOOR_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dense_gemv_floor_{member}_{in_features}x{out_features}",
+            name=f"mlx_iqk_dense_gemv_floor_{member}_{in_features}x{out_features}",
             input_names=dense_gemv_input_names(member),
             output_names=["out"],
             source=dense_gemv_floor_source(member, in_features, out_features,
@@ -414,7 +414,7 @@ def dense_dequant_floor_kernel(member: str, in_features: int, out_features: int)
     kernel = _FLOOR_KERNELS.get(key)
     if kernel is None:
         kernel = mx.fast.metal_kernel(
-            name=f"mlx_ikq_dense_dequant_floor_{member}_{in_features}x{out_features}",
+            name=f"mlx_iqk_dense_dequant_floor_{member}_{in_features}x{out_features}",
             input_names=dense_dequant_input_names(member),
             output_names=["out"],
             source=dense_dequant_floor_source(member, in_features, out_features),

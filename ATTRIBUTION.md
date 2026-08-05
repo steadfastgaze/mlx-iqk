@@ -26,10 +26,10 @@ multiply in float32.
 - **Pin**: commit `b341d0b58b24d69a635bb81cdb907f9369c73dec`
 - **License**: MIT (`LICENSE` in that repository, naming the ggml, llama.cpp,
   and ik_llama.cpp authors). Reproduced in this repository's `NOTICE`.
-- **Where**: `vendor/ik_llama/ikq_iq2.cpp`, `vendor/ik_llama/ikq_iq1sr4.cpp`,
-  `vendor/ik_llama/ikq_dense.cpp`
+- **Where**: `vendor/ik_llama/iqk_iq2.cpp`, `vendor/ik_llama/iqk_iq1sr4.cpp`,
+  `vendor/ik_llama/iqk_dense.cpp`
 
-Copied symbols and their upstream locations (`ikq_iq2.cpp`):
+Copied symbols and their upstream locations (`iqk_iq2.cpp`):
 
 | symbol | upstream file | upstream lines |
 |---|---|---|
@@ -61,7 +61,7 @@ Changes to the copied bodies, complete:
 4. `GGML_FP32_TO_FP16` and `GGML_FP16_TO_FP32` become local functions with
    the same NEON body, falling back to `_Float16` where `__fp16` is absent.
 
-Copied symbols and their upstream locations (`ikq_iq1sr4.cpp`):
+Copied symbols and their upstream locations (`iqk_iq1sr4.cpp`):
 
 | symbol | upstream file | upstream lines |
 |---|---|---|
@@ -102,7 +102,7 @@ against `libggml` from a local ik_llama checkout and asserts the vendored
 quantizers and dequantizers reproduce upstream's output bit for bit; it
 skips when no checkout is present.
 
-Copied symbols and their upstream locations (`ikq_dense.cpp`):
+Copied symbols and their upstream locations (`iqk_dense.cpp`):
 
 | symbol | upstream file | upstream lines |
 |---|---|---|
@@ -124,7 +124,7 @@ Copied symbols and their upstream locations (`ikq_dense.cpp`):
 | `quantize_row_iq4_k_impl_bs128` | `ggml/src/iqk/iqk_quantize.cpp` | 4369-4528 |
 | `quantize_row_iq5_k_impl` | `ggml/src/iqk/iqk_quantize.cpp` | 3236-3416 |
 | `quantize_row_iq6_k_impl` | `ggml/src/iqk/iqk_quantize.cpp` | 3594-3776 |
-| the `IQ6_K` float search-table construction (in `ikq_quantize_iq6_k`) | `ggml/src/iqk/iqk_quantize.cpp` | 3790-3806 |
+| the `IQ6_K` float search-table construction (in `iqk_quantize_iq6_k`) | `ggml/src/iqk/iqk_quantize.cpp` | 3790-3806 |
 | `dequantize_row_iq4_k` | `ggml/src/iqk/iqk_quantize.cpp` | 2822-2849 |
 | `dequantize_row_iq5_k` | `ggml/src/iqk/iqk_quantize.cpp` | 3112-3151 |
 | `dequantize_row_iq6_k` | `ggml/src/iqk/iqk_quantize.cpp` | 3448-3491 |

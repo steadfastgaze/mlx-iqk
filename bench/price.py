@@ -48,8 +48,8 @@ sys.path.insert(0, str(HERE.parent / "tests"))
 
 import floors
 import wirepack
-from mlx_ikq import format as fmt
-from mlx_ikq.kernels import (
+from mlx_iqk import format as fmt
+from mlx_iqk.kernels import (
     DEQUANT_THREADS,
     ROWS_PER_TG,
     dequant_kernel,
@@ -251,7 +251,7 @@ def _slice_wire(wire: np.ndarray, rows: np.ndarray) -> np.ndarray:
 
 
 def _member_table(member: str):
-    from mlx_ikq.nn import member_table
+    from mlx_iqk.nn import member_table
     return member_table(member)
 
 

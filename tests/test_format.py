@@ -1,7 +1,7 @@
 """The relayout is bit-identical to ik's own dequantizers.
 
 This is the gate every other claim in the repository rests on. The reference
-decode in :mod:`mlx_ikq.format` operates on the k-contiguous relayout, so
+decode in :mod:`mlx_iqk.format` operates on the k-contiguous relayout, so
 before it can validate a kernel it has itself to be shown equal to
 ``dequantize_row_iq2_k`` and ``dequantize_row_iq2_ks``. Two sweeps do that:
 an enumeration of the whole decode value space, and a random sweep over the
@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 
 import wirepack
-from mlx_ikq import codec
-from mlx_ikq import format as fmt
+from mlx_iqk import codec
+from mlx_iqk import format as fmt
 
 WIDTHS = (256, 512, 2048, 4096)
 
@@ -105,26 +105,26 @@ def test_iq1_s_r4_width_follows_the_32_weight_block():
     assert fmt.check_row_width(96, "iq1_s_r4") == 96
     assert fmt.check_row_width(4000, "iq1_s_r4") == 4000
     for bad in (0, -32, 31, 100, 4001):
-        with pytest.raises(fmt.IkqFormatError):
+        with pytest.raises(fmt.IqkFormatError):
             fmt.check_row_width(bad, "iq1_s_r4")
 
 
 def test_iq1_s_r4_wire_rows_come_in_groups_of_four():
     assert fmt.check_wire_rows("iq1_s_r4", 8) == 8
     for bad in (0, -4, 2, 6, 37):
-        with pytest.raises(fmt.IkqFormatError):
+        with pytest.raises(fmt.IqkFormatError):
             fmt.check_wire_rows("iq1_s_r4", bad)
     assert fmt.check_wire_rows("iq2_ks", 7) == 7
 
 
 @pytest.mark.parametrize("bad", [0, -256, 255, 300, 4095])
 def test_row_width_guard_rejects_non_multiples_of_the_block(bad):
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.check_row_width(bad)
 
 
 def test_unknown_member_is_rejected():
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.check_member("iq3_k")
 
 
@@ -148,7 +148,7 @@ def test_iq1_s_r4_component_shapes_cover_every_weight_once():
 @pytest.mark.parametrize("member", fmt.MEMBERS)
 def test_pack_rejects_a_wire_row_of_the_wrong_length(member):
     wire = np.zeros((2, fmt.ik_row_bytes(member, 2048) + 1), dtype=np.uint8)
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.pack(member, wire, 2048)
 
 
@@ -157,12 +157,12 @@ def test_pack_rejects_a_wire_row_of_the_wrong_length(member):
 
 def test_vendored_block_sizes_match_the_wire_spec():
     lib = codec.load()
-    assert lib.ikq_block_size_iq2_k() == fmt.IQ2_K_BLOCK_BYTES
-    assert lib.ikq_block_size_iq2_ks() == fmt.IQ2_KS_BLOCK_BYTES
+    assert lib.iqk_block_size_iq2_k() == fmt.IQ2_K_BLOCK_BYTES
+    assert lib.iqk_block_size_iq2_ks() == fmt.IQ2_KS_BLOCK_BYTES
     lib1 = codec.load_iq1sr4()
-    assert lib1.ikq_block_size_iq1_s_r4() == fmt.IQ1_S_R4_BLOCK_BYTES
-    assert lib1.ikq_row_size_iq1_s_r4(4096) == 770
-    assert lib1.ikq_row_size_iq1_s_r4(4001) == 0
+    assert lib1.iqk_block_size_iq1_s_r4() == fmt.IQ1_S_R4_BLOCK_BYTES
+    assert lib1.iqk_row_size_iq1_s_r4(4096) == 770
+    assert lib1.iqk_row_size_iq1_s_r4(4001) == 0
 
 
 @pytest.mark.slow
@@ -282,9 +282,9 @@ def test_iq1_s_r4_exhaustive_value_space_is_bit_identical():
 
 def test_iq1_s_r4_pack_refuses_a_row_count_that_breaks_groups():
     wire = wirepack.random_wire("iq1_s_r4", 8, 2048, seed=23)
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.pack("iq1_s_r4", wire[:6], 2048)
-    with pytest.raises(fmt.IkqFormatError):
+    with pytest.raises(fmt.IqkFormatError):
         fmt.pack("iq1_s_r4", wire, 2048, chunk=6)
 
 
