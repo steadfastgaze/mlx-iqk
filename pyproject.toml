@@ -1,0 +1,58 @@
+[project]
+name = "mlx-ikq"
+version = "0.1.0"
+description = "IQ_K relayout routed-expert kernels for MLX on Apple silicon."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.11"
+dependencies = [
+    "mlx>=0.31.2",
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+# The kernel tests must run against the MLX build the consuming runtime
+# serves with, so the development environment pins the version rather than
+# floating on the library's own lower bound.
+dev = [
+    "mlx==0.31.2",
+    "numpy>=1.26",
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling==1.31.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mlx_ikq"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"vendor/ik_llama/build.sh" = "mlx_ikq_vendor/ik_llama/build.sh"
+"vendor/ik_llama/build_iq1sr4.sh" = "mlx_ikq_vendor/ik_llama/build_iq1sr4.sh"
+"vendor/ik_llama/ikq_dense.cpp" = "mlx_ikq_vendor/ik_llama/ikq_dense.cpp"
+"vendor/ik_llama/ikq_dense.h" = "mlx_ikq_vendor/ik_llama/ikq_dense.h"
+"vendor/ik_llama/ikq_iq1sr4.cpp" = "mlx_ikq_vendor/ik_llama/ikq_iq1sr4.cpp"
+"vendor/ik_llama/ikq_iq1sr4.h" = "mlx_ikq_vendor/ik_llama/ikq_iq1sr4.h"
+"vendor/ik_llama/ikq_iq2.cpp" = "mlx_ikq_vendor/ik_llama/ikq_iq2.cpp"
+"vendor/ik_llama/ikq_iq2.h" = "mlx_ikq_vendor/ik_llama/ikq_iq2.h"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.isort]
+# `wirepack` and `floors` are test and instrument scaffolding, not dependencies.
+known-first-party = ["mlx_ikq", "wirepack", "floors"]
+
+[tool.ruff.lint.per-file-ignores]
+# The instruments extend sys.path before importing, and their host-state
+# probes report any failure as a recorded field rather than raising.
+"bench/*.py" = ["E402", "BLE001"]
+
+[tool.pytest.ini_options]
+markers = [
+    "gpu: tests that dispatch Metal kernels and need the GPU",
+    "slow: tests that run the exhaustive or full-geometry sweeps",
+]
