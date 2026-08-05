@@ -1,6 +1,6 @@
 [project]
 name = "mlx-iqk"
-version = "0.1.0"
+version = "0.1.1"
 description = "IQ_K relayout routed-expert kernels for MLX on Apple silicon."
 readme = "README.md"
 license = "MIT"
