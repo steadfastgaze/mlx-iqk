@@ -6,6 +6,7 @@ itself derived from llama.cpp and ggml.
 
   vendor/ik_llama/iqk_iq2.cpp
   vendor/ik_llama/iqk_iq1sr4.cpp
+  vendor/ik_llama/iqk_dense.cpp
 
   MIT License
   Copyright (c) 2023-2024 The ggml authors
